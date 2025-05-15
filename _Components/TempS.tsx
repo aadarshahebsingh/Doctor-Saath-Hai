@@ -8,21 +8,20 @@ import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 
-
 // Type definitions
-interface Symptom {
+interface HealthSymptom {
   id: string;
   name: string;
   category: string;
 }
 
-interface SelectedSymptom extends Symptom {
+interface ChosenSymptom extends HealthSymptom {
   duration: string;
   severity: number;
 }
 
-// New interface for prediction results
-interface PredictionResult {
+// New interface for diagnosis results
+interface DiagnosisResult {
   prediction: string;
   confidence: number;
   medicines: string[];
@@ -30,7 +29,7 @@ interface PredictionResult {
   prices_inr: string[];
 }
 
-type DurationType =
+type TimeSpanType =
   | "< 24 hours"
   | "1-3 days"
   | "4-7 days"
@@ -39,7 +38,7 @@ type DurationType =
   | "1+ month";
 
 // Sample symptom data (would come from API in production)
-const SYMPTOM_DATA: Symptom[] = [
+const HEALTH_SYMPTOM_DATA: HealthSymptom[] = [
   // General/Systemic Symptoms
   { id: "1", name: "Fatigue", category: "General" },
   { id: "2", name: "Fever", category: "General" },
@@ -173,7 +172,7 @@ const SYMPTOM_DATA: Symptom[] = [
   },
 ];
 
-const DURATION_OPTIONS: DurationType[] = [
+const TIME_SPAN_OPTIONS: TimeSpanType[] = [
   "< 24 hours",
   "1-3 days",
   "4-7 days",
@@ -183,7 +182,7 @@ const DURATION_OPTIONS: DurationType[] = [
 ];
 
 // Symptom category icons
-const CATEGORY_ICONS: Record<string, JSX.Element> = {
+const SYMPTOM_CATEGORY_ICONS: Record<string, JSX.Element> = {
   Neurological: (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -307,8 +306,8 @@ const CATEGORY_ICONS: Record<string, JSX.Element> = {
 };
 
 // Group symptoms by category
-const groupSymptomsByCategory = (symptoms: Symptom[]) => {
-  const grouped: Record<string, Symptom[]> = {};
+const groupSymptomsByCategory = (symptoms: HealthSymptom[]) => {
+  const grouped: Record<string, HealthSymptom[]> = {};
 
   symptoms.forEach((symptom) => {
     if (!grouped[symptom.category]) {
@@ -321,66 +320,64 @@ const groupSymptomsByCategory = (symptoms: Symptom[]) => {
 };
 
 const SymptomPage: NextPage = () => {
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [selectedSymptoms, setSelectedSymptoms] = useState<SelectedSymptom[]>(
-    []
+  const [queryText, setQueryText] = useState<string>("");
+  const [chosenSymptoms, setChosenSymptoms] = useState<ChosenSymptom[]>([]);
+  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>(
+    {}
   );
-  const [expandedCategories, setExpandedCategories] = useState<
-    Record<string, boolean>
-  >({});
-  const [currentSymptom, setCurrentSymptom] = useState<Symptom | null>(null);
-  const [currentDuration, setCurrentDuration] =
-    useState<DurationType>("1-3 days");
-  const [currentSeverity, setCurrentSeverity] = useState<number>(5);
-  const [durationDropdownOpen, setDurationDropdownOpen] =
+  const [activeSymptom, setActiveSymptom] = useState<HealthSymptom | null>(null);
+  const [activeTimeSpan, setActiveTimeSpan] = useState<TimeSpanType>("1-3 days");
+  const [activeSeverityLevel, setActiveSeverityLevel] = useState<number>(5);
+  const [timeSpanDropdownVisible, setTimeSpanDropdownVisible] =
     useState<boolean>(false);
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [submissionMessage, setSubmissionMessage] = useState<string>("");
-  const [activeStep, setActiveStep] = useState<number>(1);
-  const [predictionResult, setPredictionResult] = useState<
-    PredictionResult[] | null
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [statusMessage, setStatusMessage] = useState<string>("");
+  const [currentPhase, setCurrentPhase] = useState<number>(1);
+  const [diagnosisOutcome, setDiagnosisOutcome] = useState<
+    DiagnosisResult[] | null
   >(null);
-  const [apiError, setApiError] = useState<string>("");
-  const [loading, setLoading] = useState<boolean>(false);
+  const [serverError, setServerError] = useState<string>("");
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const timeSpanDropdownRef = useRef<HTMLDivElement>(null);
+  const queryInputRef = useRef<HTMLInputElement>(null);
 
-  const backend_url = "http://localhost:5001";
+  const apiEndpoint = "http://localhost:5001";
+
   // Initialize first category as expanded
   useEffect(() => {
     if (
-      Object.keys(expandedCategories).length === 0 &&
-      SYMPTOM_DATA.length > 0
+      Object.keys(openCategories).length === 0 &&
+      HEALTH_SYMPTOM_DATA.length > 0
     ) {
-      const categories = [...new Set(SYMPTOM_DATA.map((s) => s.category))];
+      const categories = [...new Set(HEALTH_SYMPTOM_DATA.map((s) => s.category))];
       if (categories.length > 0) {
-        setExpandedCategories({ [categories[0]]: true });
+        setOpenCategories({ [categories[0]]: true });
       }
     }
 
     // Focus search input on mount
-    if (searchInputRef.current) {
-      searchInputRef.current.focus();
+    if (queryInputRef.current) {
+      queryInputRef.current.focus();
     }
   }, []);
 
   // Filter symptoms based on search term
-  const filteredSymptoms = SYMPTOM_DATA.filter((symptom) =>
-    symptom.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const queriedSymptoms = HEALTH_SYMPTOM_DATA.filter((symptom) =>
+    symptom.name.toLowerCase().includes(queryText.toLowerCase())
   );
 
   // Group filtered symptoms by category
-  const groupedSymptoms = groupSymptomsByCategory(filteredSymptoms);
+  const categorizedSymptoms = groupSymptomsByCategory(queriedSymptoms);
 
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
+        timeSpanDropdownRef.current &&
+        or: !timeSpanDropdownRef.current.contains(event.target as Node)
       ) {
-        setDurationDropdownOpen(false);
+        setTimeSpanDropdownVisible(false);
       }
     };
 
@@ -392,70 +389,70 @@ const SymptomPage: NextPage = () => {
 
   // Toggle category expansion
   const toggleCategory = (category: string) => {
-    setExpandedCategories((prev) => ({
+    setOpenCategories((prev) => ({
       ...prev,
       [category]: !prev[category],
     }));
   };
 
   // Select/deselect symptom
-  const toggleSymptom = (symptom: Symptom) => {
-    const isSelected = selectedSymptoms.some((s) => s.id === symptom.id);
+  const toggleSymptom = (symptom: HealthSymptom) => {
+    const isSelected = chosenSymptoms.some((s) => s.id === symptom.id);
 
     if (isSelected) {
-      setSelectedSymptoms((prev) => prev.filter((s) => s.id !== symptom.id));
+      setChosenSymptoms((prev) => prev.filter((s) => s.id !== symptom.id));
     } else {
-      if (selectedSymptoms.length < 4) {
-        setCurrentSymptom(symptom);
+      if (chosenSymptoms.length < 4) {
+        setActiveSymptom(symptom);
       }
     }
   };
 
   // Add symptom with duration and severity
   const addSymptomWithDetails = () => {
-    if (currentSymptom) {
-      const symptomWithDetails: SelectedSymptom = {
-        ...currentSymptom,
-        duration: currentDuration,
-        severity: currentSeverity,
+    if (activeSymptom) {
+      const symptomWithDetails: ChosenSymptom = {
+        ...activeSymptom,
+        duration: activeTimeSpan,
+        severity: activeSeverityLevel,
       };
 
-      setSelectedSymptoms((prev) => [...prev, symptomWithDetails]);
-      setCurrentSymptom(null);
-      setCurrentSeverity(5);
+      setChosenSymptoms((prev) => [...prev, symptomWithDetails]);
+      setActiveSymptom(null);
+      setActiveSeverityLevel(5);
     }
   };
 
   // Move to review and analysis step
   const moveToReview = () => {
-    if (selectedSymptoms.length > 0) {
-      setActiveStep(2);
+    if (chosenSymptoms.length > 0) {
+      setCurrentPhase(2);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } else {
-      setSubmissionMessage("Please select at least one symptom");
-      setTimeout(() => setSubmissionMessage(""), 3000);
+      setStatusMessage("Please select at least one symptom");
+      setTimeout(() => setStatusMessage(""), 3000);
     }
   };
 
   // Convert selected symptoms to the format expected by the API
-  const formatSymptomsForApi = (symptoms: SelectedSymptom[]): string => {
+  const formatSymptomsForApi = (symptoms: ChosenSymptom[]): string => {
     return symptoms.map((symptom) => symptom.name).join(", ");
   };
 
   // Handle submission with actual API call
   const handleSubmit = async () => {
-    setIsSubmitting(true);
-    setSubmissionMessage("");
-    setApiError("");
-    setPredictionResult(null);
-    setLoading(true);
+    setIsProcessing(true);
+    setStatusMessage("");
+    setServerError("");
+    setDiagnosisOutcome(null);
+    setIsLoading(true);
 
     try {
       const payload = {
-        symptom_text: formatSymptomsForApi(selectedSymptoms),
+        symptom_text: formatSymptomsForApi(chosenSymptoms),
       };
       console.log("here", payload);
-      const response = await fetch(`${backend_url}/api/predict/predict`, {
+      const response = await fetch(`${apiEndpoint}/api/predict/predict`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -469,17 +466,17 @@ const SymptomPage: NextPage = () => {
 
       const data = await response.json();
       console.log("backend data: ", data);
-      setPredictionResult(data.matches);
-      setSubmissionMessage("Analysis complete!");
+      setDiagnosisOutcome(data.matches);
+      setStatusMessage("Analysis complete!");
     } catch (error) {
       console.error("Error fetching prediction:", error);
-      setApiError(
+      setServerError(
         error instanceof Error ? error.message : "An unknown error occurred"
       );
-      setSubmissionMessage("An error occurred. Please try again.");
+      setStatusMessage("An error occurred. Please try again.");
     } finally {
-      setIsSubmitting(false);
-      setLoading(false);
+      setIsProcessing(false);
+      setIsLoading(false);
     }
   };
 
@@ -499,17 +496,20 @@ const SymptomPage: NextPage = () => {
 
   // Get progress percentage for progress bar
   const getProgressPercentage = (): number => {
-    return activeStep === 1
-      ? Math.min(25 + selectedSymptoms.length * 15, 95)
-      : isSubmitting
+    return currentPhase === 1
+      ? Math.min(25 + chosenSymptoms.length * 15, 95)
+      : isProcessing
       ? 98
       : 95;
   };
 
   return (
     <>
-    <Navbar/>
-    <br /><br /><br /><br />
+      <Navbar />
+      <br />
+      <br />
+      <br />
+      <br />
       <Head>
         <title>Medi AI | Symptom Checker</title>
         <meta name="description" content="Check your symptoms with Medi AI" />
@@ -552,7 +552,7 @@ const SymptomPage: NextPage = () => {
                 <div className="flex items-center space-x-2 text-sm text-gray-500">
                   <span
                     className={`${
-                      activeStep >= 1 ? "text-white font-medium" : ""
+                      currentPhase >= 1 ? "text-white font-medium" : ""
                     }`}
                   >
                     Symptoms
@@ -571,7 +571,7 @@ const SymptomPage: NextPage = () => {
                   </svg>
                   <span
                     className={`${
-                      activeStep >= 2 ? "text-white font-medium" : ""
+                      currentPhase >= 2 ? "text-white font-medium" : ""
                     }`}
                   >
                     Review
@@ -590,7 +590,7 @@ const SymptomPage: NextPage = () => {
                   </svg>
                   <span
                     className={`${
-                      isSubmitting ? "text-white font-medium" : ""
+                      isProcessing ? "text-white font-medium" : ""
                     }`}
                   >
                     Analysis
@@ -612,30 +612,30 @@ const SymptomPage: NextPage = () => {
             {/* Step Title */}
             <motion.h2
               className="text-2xl font-bold text-white-800"
-              key={`step-title-${activeStep}`}
+              key={`step-title-${currentPhase}`}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
             >
-              {activeStep === 1
+              {currentPhase === 1
                 ? "Tell us about your symptoms"
                 : "Review and analyze symptoms"}
             </motion.h2>
             <motion.p
               className="text-white-600"
-              key={`step-desc-${activeStep}`}
+              key={`step-desc-${currentPhase}`}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
             >
-              {activeStep === 1
+              {currentPhase === 1
                 ? "Select up to 4 symptoms you're experiencing for an AI-powered health assessment"
                 : "Verify your symptom information before receiving an AI analysis"}
             </motion.p>
           </header>
 
           <AnimatePresence mode="wait">
-            {activeStep === 1 ? (
+            {currentPhase === 1 ? (
               <motion.div
                 key="symptom-selection"
                 initial={{ opacity: 0, y: 20 }}
@@ -665,17 +665,17 @@ const SymptomPage: NextPage = () => {
                         </svg>
                       </div>
                       <input
-                        ref={searchInputRef}
+                        ref={queryInputRef}
                         type="text"
                         placeholder="Search symptoms..."
                         className="text-black w-full pl-12 pr-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white transition-all shadow-sm"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        value={queryText}
+                        onChange={(e) => setQueryText(e.target.value)}
                       />
-                      {searchTerm && (
+                      {queryText && (
                         <button
                           className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
-                          onClick={() => setSearchTerm("")}
+                          onClick={() => setQueryText("")}
                         >
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -700,14 +700,14 @@ const SymptomPage: NextPage = () => {
                         <p className="text-sm text-[#004f63]">
                           Selected symptoms:{" "}
                           <span className="font-medium">
-                            {selectedSymptoms.length}/4
+                            {chosenSymptoms.length}/4
                           </span>
                         </p>
 
-                        {selectedSymptoms.length > 0 && (
+                        {chosenSymptoms.length > 0 && (
                           <button
                             className="text-sm text-[#004f63] hover:text-teal-800 transition-colors"
-                            onClick={() => setSelectedSymptoms([])}
+                            onClick={() => setChosenSymptoms([])}
                           >
                             Clear all
                           </button>
@@ -716,7 +716,7 @@ const SymptomPage: NextPage = () => {
 
                       <div className="flex flex-wrap gap-2 min-h-12">
                         <AnimatePresence>
-                          {selectedSymptoms?.map((symptom) => (
+                          {chosenSymptoms?.map((symptom) => (
                             <motion.div
                               key={symptom.id}
                               initial={{ opacity: 0, scale: 0.8 }}
@@ -755,8 +755,8 @@ const SymptomPage: NextPage = () => {
 
                 {/* Symptom Categories */}
                 <div className="max-h-96 overflow-y-auto">
-                  {Object.keys(groupedSymptoms).length > 0 ? (
-                    Object.entries(groupedSymptoms).map(
+                  {Object.keys(categorizedSymptoms).length > 0 ? (
+                    Object.entries(categorizedSymptoms).map(
                       ([category, symptoms]) => (
                         <div
                           key={category}
@@ -768,7 +768,7 @@ const SymptomPage: NextPage = () => {
                           >
                             <div className="flex items-center space-x-3">
                               <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-blue-100 text-[#00796B] shadow-md">
-                                {CATEGORY_ICONS[category] || (
+                                {SYMPTOM_CATEGORY_ICONS[category] || (
                                   <svg
                                     xmlns="http://www.w3.org/2000/svg"
                                     className="h-5 w-5"
@@ -796,14 +796,12 @@ const SymptomPage: NextPage = () => {
                             </div>
                             <div className="flex items-center">
                               <span className="text-xs text-[#004f63] mr-2">
-                                {expandedCategories[category] ? "Hide" : "Show"}
+                                {openCategories[category] ? "Hide" : "Show"}
                               </span>
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
                                 className={`h-5 w-5 text-gray-400 transform transition-transform ${
-                                  expandedCategories[category]
-                                    ? "rotate-180"
-                                    : ""
+                                  openCategories[category] ? "rotate-180" : ""
                                 }`}
                                 fill="none"
                                 viewBox="0 0 24 24"
@@ -820,7 +818,7 @@ const SymptomPage: NextPage = () => {
                           </button>
 
                           <AnimatePresence>
-                            {expandedCategories[category] && (
+                            {openCategories[category] && (
                               <motion.div
                                 initial={{ height: 0, opacity: 0 }}
                                 animate={{ height: "auto", opacity: 1 }}
@@ -830,12 +828,11 @@ const SymptomPage: NextPage = () => {
                               >
                                 <div className="px-4 py-2 grid grid-cols-1 md:grid-cols-2 gap-2">
                                   {symptoms.map((symptom) => {
-                                    const isSelected = selectedSymptoms.some(
+                                    const isSelected = chosenSymptoms.some(
                                       (s) => s.id === symptom.id
                                     );
                                     const isDisabled =
-                                      !isSelected &&
-                                      selectedSymptoms.length >= 4;
+                                      !isSelected && chosenSymptoms.length >= 4;
 
                                     return (
                                       <div
@@ -851,7 +848,7 @@ const SymptomPage: NextPage = () => {
                                           !isDisabled && toggleSymptom(symptom)
                                         }
                                       >
-                                        {/* check box  */}
+                                        {/* check box */}
                                         <div
                                           className={`w-5 h-5 flex-shrink-0 rounded-md border ${
                                             isSelected
@@ -932,12 +929,12 @@ const SymptomPage: NextPage = () => {
                     <button
                       type="button"
                       className={`px-6 py-3 rounded-xl font-medium transition-all ${
-                        selectedSymptoms.length === 0
+                        chosenSymptoms.length === 0
                           ? "bg-blue-200 text-gray-500 cursor-not-allowed"
                           : "bg-gradient-to-r from-blue-500 to-[#cc9900] text-white shadow-md hover:shadow-lg hover:from-teal-600 hover:to-cyan-600"
                       }`}
                       onClick={moveToReview}
-                      disabled={selectedSymptoms.length === 0}
+                      disabled={chosenSymptoms.length === 0}
                     >
                       Continue to Review
                       <svg
@@ -955,7 +952,7 @@ const SymptomPage: NextPage = () => {
                     </button>
                   </div>
 
-                  {submissionMessage && (
+                  {statusMessage && (
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -963,12 +960,12 @@ const SymptomPage: NextPage = () => {
                       transition={{ duration: 0.3 }}
                       className="mt-4 text-center text-red-600 text-sm"
                     >
-                      {submissionMessage}
+                      {statusMessage}
                     </motion.div>
                   )}
                 </div>
               </motion.div>
-            ) : predictionResult ? (
+            ) : diagnosisOutcome ? (
               // Display results if we have them
               <motion.div
                 key="prediction-results"
@@ -1009,14 +1006,14 @@ const SymptomPage: NextPage = () => {
                             ></rect>
                           </svg>
                         </div>
-                        {predictionResult && (
+                        {diagnosisOutcome && (
                           <div>
                             <h4 className="text-lg font-medium text-gray-900">
                               Possible Condition
                             </h4>
                             <div className="flex items-center">
                               <span className="text-xl font-bold text-blue-800">
-                                {predictionResult[0].disease}
+                                {diagnosisOutcome[0].disease}
                               </span>
                               <span className="ml-3 bg-blue-200 text-blue-800 text-xs px-2 py-1 rounded-full">
                                 {(Math.random() * (98 - 70) + 70).toFixed(1)}%
@@ -1029,15 +1026,12 @@ const SymptomPage: NextPage = () => {
 
                       <p className="text-sm text-gray-600 mb-4">
                         Based on your symptoms:{" "}
-                        <strong>
-                          {formatSymptomsForApi(selectedSymptoms)}
-                        </strong>
+                        <strong>{formatSymptomsForApi(chosenSymptoms)}</strong>
                       </p>
 
                       <div className="text-xs text-blue-700">
-                        <strong>Note:</strong> This is an AI-generated
-                        assessment and should not replace professional medical
-                        advice.
+                        <strong>Note:</strong> This is an AI-generated assessment
+                        and should not replace professional medical advice.
                       </div>
                     </div>
                   </div>
@@ -1073,22 +1067,20 @@ const SymptomPage: NextPage = () => {
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                          {predictionResult &&
-                            predictionResult
-                              .slice(0, 3)
-                              .map((result, index) => (
-                                <tr key={index}>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                    {result.medicines[0]}
-                                  </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {result.dosages[0]}
-                                  </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    ₹{result.prices[0]}
-                                  </td>
-                                </tr>
-                              ))}
+                          {diagnosisOutcome &&
+                            diagnosisOutcome.slice(0, 3).map((result, index) => (
+                              <tr key={index}>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                  {result.medicines[0]}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                  {result.dosages[0]}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                  ₹{result.prices[0]}
+                                </td>
+                              </tr>
+                            ))}
                         </tbody>
                       </table>
                     </div>
@@ -1122,13 +1114,12 @@ const SymptomPage: NextPage = () => {
                           Important Medical Disclaimer
                         </h4>
                         <p className="text-sm text-yellow-700">
-                          This assessment is for informational purposes only.
-                          The medications listed above may not be suitable for
-                          your specific condition. Always consult with a
-                          healthcare professional before taking any medication.
+                          This assessment is for informational purposes only. The
+                          medications listed above may not be suitable for your
+                          specific condition. Always consult with a healthcare
+                          professional before taking any medication.
                         </p>
                       </div>
-                      
                     </div>
                   </motion.div>
                   <motion.div
@@ -1150,29 +1141,35 @@ const SymptomPage: NextPage = () => {
                           strokeLinejoin="round"
                         >
                           <circle cx="12" cy="12" r="10"></circle>
-                          <line x1="12" y1="8" x2="12" y2="12"></line>
+                          <line x1="12" y1="8" x2="12
+
+" y2="12"></line>
                           <line x1="12" y1="16" x2="12.01" y2="16"></line>
                         </svg>
                       </div>
                       <div>
-  <h4 className="font-medium text-red-800 mb-1">
-    Seek Urgent Medical Attention If You Experience:
-  </h4>
-  <ul className="list-disc pl-5 text-sm text-red-700 space-y-1">
-    <li>Vomiting that is persistent or severe</li>
-    <li>Vision changes (blurred, double, or loss of vision)</li>
-    <li>Loss of consciousness or fainting</li>
-    <li>Difficulty breathing or shortness of breath</li>
-    <li>High fever (above 103°F or 39.4°C) that doesn’t go down</li>
-    <li>Sharp, intensely painful abdominal pain</li>
-    <li>Painful urination accompanied by fever or back pain</li>
-  </ul>
-</div>
-                      
+                        <h4 className="font-medium text-red-800 mb-1">
+                          Seek Urgent Medical Attention If You Experience:
+                        </h4>
+                        <ul className="list-disc pl-5 text-sm text-red-700 space-y-1">
+                          <li>Vomiting that is persistent or severe</li>
+                          <li>
+                            Vision changes (blurred, double, or loss of vision)
+                          </li>
+                          <li>Loss of consciousness or fainting</li>
+                          <li>Difficulty breathing or shortness of breath</li>
+                          <li>
+                            High fever (above 103°F or 39.4°C) that doesn’t go
+                            down
+                          </li>
+                          <li>Sharp, intensely painful abdominal pain</li>
+                          <li>
+                            Painful urination accompanied by fever or back pain
+                          </li>
+                        </ul>
+                      </div>
                     </div>
                   </motion.div>
-                  
-
                 </div>
 
                 {/* Action Buttons */}
@@ -1182,8 +1179,8 @@ const SymptomPage: NextPage = () => {
                       type="button"
                       className="flex items-center justify-center text-blue-600 hover:text-blue-800 transition-colors"
                       onClick={() => {
-                        setActiveStep(1);
-                        setPredictionResult(null);
+                        setCurrentPhase(1);
+                        setDiagnosisOutcome(null);
                       }}
                     >
                       <svg
@@ -1227,7 +1224,7 @@ const SymptomPage: NextPage = () => {
                   </h3>
 
                   <div className="space-y-4">
-                    {selectedSymptoms.map((symptom, index) => (
+                    {chosenSymptoms.map((symptom, index) => (
                       <motion.div
                         key={symptom.id}
                         initial={{ opacity: 0, y: 20 }}
@@ -1238,7 +1235,7 @@ const SymptomPage: NextPage = () => {
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center">
                             <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
-                              {CATEGORY_ICONS[symptom.category] || (
+                              {SYMPTOM_CATEGORY_ICONS[symptom.category] || (
                                 <svg
                                   xmlns="http://www.w3.org/2000/svg"
                                   className="h-5 w-5 text-teal-600"
@@ -1267,11 +1264,11 @@ const SymptomPage: NextPage = () => {
                           <button
                             className="text-blue-400 hover:text-red-500 transition-colors"
                             onClick={() => {
-                              setSelectedSymptoms((prev) =>
+                              setChosenSymptoms((prev) =>
                                 prev.filter((s) => s.id !== symptom.id)
                               );
-                              if (selectedSymptoms.length === 1) {
-                                setActiveStep(1);
+                              if (chosenSymptoms.length === 1) {
+                                setCurrentPhase(1);
                               }
                             }}
                           >
@@ -1340,7 +1337,7 @@ const SymptomPage: NextPage = () => {
                   </div>
 
                   {/* Error message if API call failed */}
-                  {apiError && (
+                  {serverError && (
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -1369,7 +1366,7 @@ const SymptomPage: NextPage = () => {
                             Error Connecting to Server
                           </h4>
                           <p className="text-sm text-red-700">
-                            {apiError}. Please try again later or contact
+                            {serverError}. Please try again later or contact
                             support.
                           </p>
                         </div>
@@ -1421,7 +1418,7 @@ const SymptomPage: NextPage = () => {
                     <button
                       type="button"
                       className="flex items-center justify-center text-blue-600 hover:text-teal-800 transition-colors"
-                      onClick={() => setActiveStep(1)}
+                      onClick={() => setCurrentPhase(1)}
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -1441,14 +1438,14 @@ const SymptomPage: NextPage = () => {
                     <button
                       type="button"
                       className={`px-6 py-3 rounded-xl font-medium transition-all ${
-                        isSubmitting || loading
+                        isProcessing || isLoading
                           ? "bg-gray-300 cursor-not-allowed"
                           : "bg-gradient-to-r from-cyan-500 to-[#006699] text-white shadow-md hover:shadow-lg hover:from-teal-600 hover:to-cyan-600"
                       }`}
                       onClick={handleSubmit}
-                      disabled={isSubmitting || loading}
+                      disabled={isProcessing || isLoading}
                     >
-                      {isSubmitting || loading ? (
+                      {isProcessing || isLoading ? (
                         <span className="flex items-center justify-center">
                           <svg
                             className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
@@ -1478,7 +1475,7 @@ const SymptomPage: NextPage = () => {
                     </button>
                   </div>
 
-                  {submissionMessage && (
+                  {statusMessage && (
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -1486,7 +1483,7 @@ const SymptomPage: NextPage = () => {
                       transition={{ duration: 0.3 }}
                       className="mt-4 text-center text-red-600 text-sm"
                     >
-                      {submissionMessage}
+                      {statusMessage}
                     </motion.div>
                   )}
                 </div>
@@ -1546,7 +1543,7 @@ const SymptomPage: NextPage = () => {
 
       {/* Symptom Details Modal */}
       <AnimatePresence>
-        {currentSymptom && (
+        {activeSymptom && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -1564,7 +1561,7 @@ const SymptomPage: NextPage = () => {
               <div className="flex items-start justify-between mb-6">
                 <div className="flex items-center">
                   <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
-                    {CATEGORY_ICONS[currentSymptom.category] || (
+                    {SYMPTOM_CATEGORY_ICONS[activeSymptom.category] || (
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         className="h-5 w-5 text-teal-600"
@@ -1583,16 +1580,16 @@ const SymptomPage: NextPage = () => {
                   </div>
                   <div>
                     <h3 className="text-xl font-semibold text-gray-800">
-                      {currentSymptom.name}
+                      {activeSymptom.name}
                     </h3>
                     <p className="text-sm text-gray-500">
-                      {currentSymptom.category}
+                      {activeSymptom.category}
                     </p>
                   </div>
                 </div>
                 <button
                   className="text-gray-400 hover:text-gray-600 transition-colors"
-                  onClick={() => setCurrentSymptom(null)}
+                  onClick={() => setActiveSymptom(null)}
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -1616,12 +1613,12 @@ const SymptomPage: NextPage = () => {
                 <label className="block text-gray-700 font-medium mb-2">
                   Duration of symptom
                 </label>
-                <div className="relative" ref={dropdownRef}>
+                <div className="relative" ref={timeSpanDropdownRef}>
                   <button
                     type="button"
                     className="w-full flex items-center justify-between px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-700 hover:bg-gray-50 focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
                     onClick={() =>
-                      setDurationDropdownOpen(!durationDropdownOpen)
+                      setTimeSpanDropdownVisible(!timeSpanDropdownVisible)
                     }
                   >
                     <div className="flex items-center">
@@ -1639,12 +1636,12 @@ const SymptomPage: NextPage = () => {
                           d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                         />
                       </svg>
-                      <span>{currentDuration}</span>
+                      <span>{activeTimeSpan}</span>
                     </div>
-                    <svg
+                                        <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      className={`h-5 w-5 text-gray-400 transition-transform ${
-                        durationDropdownOpen ? "rotate-180" : ""
+                      className={`h-5 w-5 text-gray-400 transform transition-transform ${
+                        timeSpanDropdownVisible ? "rotate-180" : ""
                       }`}
                       fill="none"
                       viewBox="0 0 24 24"
@@ -1660,49 +1657,29 @@ const SymptomPage: NextPage = () => {
                   </button>
 
                   <AnimatePresence>
-                    {durationDropdownOpen && (
+                    {timeSpanDropdownVisible && (
                       <motion.div
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
-                        transition={{ duration: 0.15 }}
-                        className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden"
+                        transition={{ duration: 0.2 }}
+                        className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden"
                       >
-                        {DURATION_OPTIONS.map((option) => (
+                        {TIME_SPAN_OPTIONS.map((option) => (
                           <button
                             key={option}
                             type="button"
-                            className={`flex items-center w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors ${
-                              currentDuration === option
-                                ? "bg-blue-100 text-blue-800"
-                                : "text-gray-700"
+                            className={`w-full text-left px-4 py-2 text-gray-700 hover:bg-blue-50 hover:text-[#004f63] transition-colors ${
+                              activeTimeSpan === option
+                                ? "bg-blue-50 text-[#004f63] font-medium"
+                                : ""
                             }`}
                             onClick={() => {
-                              setCurrentDuration(option);
-                              setDurationDropdownOpen(false);
+                              setActiveTimeSpan(option);
+                              setTimeSpanDropdownVisible(false);
                             }}
                           >
-                            {currentDuration === option && (
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                className="h-5 w-5 mr-2 text-blue-600"
-                                viewBox="0 0 20 20"
-                                fill="currentColor"
-                              >
-                                <path
-                                  fillRule="evenodd"
-                                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                  clipRule="evenodd"
-                                />
-                              </svg>
-                            )}
-                            <span
-                              className={`${
-                                currentDuration === option ? "font-medium" : ""
-                              }`}
-                            >
-                              {option}
-                            </span>
+                            {option}
                           </button>
                         ))}
                       </motion.div>
@@ -1713,62 +1690,44 @@ const SymptomPage: NextPage = () => {
 
               {/* Severity Slider */}
               <div className="mb-8">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-gray-700 font-medium">
-                    Severity level
-                  </label>
-                  <span className="text-lg font-semibold bg-gradient-to-r from-cyan-600 to-blue-500 bg-clip-text text-transparent">
-                    {currentSeverity}/10
-                  </span>
-                </div>
-                <div className="mb-4">
-                  <input
-                    type="range"
-                    min="1"
-                    max="10"
-                    value={currentSeverity}
-                    onChange={(e) =>
-                      setCurrentSeverity(parseInt(e.target.value))
-                    }
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                    style={{
-                      background: `linear-gradient(to right,rgb(120, 141, 197) 0%,rgb(51, 68, 219) ${
-                        currentSeverity * 10
-                      }%, #e5e7eb ${currentSeverity * 10}%, #e5e7eb 100%)`,
-                    }}
-                  />
-                </div>
-                <div className="flex justify-between text-xs text-gray-500 mb-2">
+                <label className="block text-gray-700 font-medium mb-2">
+                  Severity: {activeSeverityLevel}/10 (
+                  {getSeverityLabel(activeSeverityLevel)})
+                </label>
+                <input
+                  type="range"
+                  min="1"
+                  max="10"
+                  value={activeSeverityLevel}
+                  onChange={(e) => setActiveSeverityLevel(Number(e.target.value))}
+                  className="w-full h-2 rounded-lg appearance-none bg-gray-200 cursor-pointer"
+                  style={{
+                    background: `linear-gradient(to right, #${getSeverityColorClass(
+                      activeSeverityLevel
+                    ).split(" ")[0].replace("from-", "")} ${
+                      (activeSeverityLevel / 10) * 100
+                    }%, #e5e7eb ${(activeSeverityLevel / 10) * 100}%)`,
+                  }}
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-2">
                   <span>Mild</span>
                   <span>Moderate</span>
                   <span>Severe</span>
                 </div>
-                <div className="flex items-center justify-center">
-                  <div
-                    className={`py-2 px-4 rounded-full text-white text-sm font-medium ${
-                      currentSeverity <= 3
-                        ? "bg-green-500"
-                        : currentSeverity <= 6
-                        ? "bg-yellow-500"
-                        : "bg-red-500"
-                    }`}
-                  >
-                    {getSeverityLabel(currentSeverity)}
-                  </div>
-                </div>
               </div>
 
+              {/* Modal Actions */}
               <div className="flex justify-end space-x-3">
                 <button
                   type="button"
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-                  onClick={() => setCurrentSymptom(null)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors"
+                  onClick={() => setActiveSymptom(null)}
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
-                  className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg hover:from-teal-600 hover:to-cyan-600 transition-colors shadow-md"
+                  className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-[#006699] text-white rounded-lg shadow-md hover:shadow-lg hover:from-teal-600 hover:to-cyan-600 transition-all"
                   onClick={addSymptomWithDetails}
                 >
                   Add Symptom
@@ -1778,6 +1737,8 @@ const SymptomPage: NextPage = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <Footer />
     </>
   );
 };
