@@ -1,6 +1,10 @@
 // pages/symptom-checker.tsx
 "use client";
+
+import { ReactNode } from "react";
 import React, { useState, useEffect, useRef, JSX } from "react";
+// import { ReactI18NextChild, ReactI18NextChildren } from 'react-i18next';
+
 import { NextPage } from "next";
 import Head from "next/head";
 import { motion, AnimatePresence } from "framer-motion";
@@ -23,6 +27,7 @@ interface SelectedSymptom extends Symptom {
 
 // New interface for prediction results
 interface PredictionResult {
+  disease: ReactNode;
   prices: any;
   prediction: string;
   confidence: number;
