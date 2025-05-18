@@ -122,10 +122,10 @@ const HeroSection = () => {
                 className="p-4 backdrop-blur-sm bg-white/30 dark:bg-slate-800/30 rounded-xl border border-slate-200/50 dark:border-slate-700/50"
               >
                 <p className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-1">
-                  {stat.value}
+                  {stat?.value}
                 </p>
                 <p className="text-slate-600 dark:text-slate-300">
-                  {stat.label}
+                  {stat?.label}
                 </p>
               </motion.div>
             ))}
