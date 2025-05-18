@@ -23,6 +23,7 @@ interface SelectedSymptom extends Symptom {
 
 // New interface for prediction results
 interface PredictionResult {
+  prices: any;
   prediction: string;
   confidence: number;
   medicines: string[];
