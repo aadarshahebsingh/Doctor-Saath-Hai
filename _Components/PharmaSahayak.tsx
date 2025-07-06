@@ -101,7 +101,6 @@ export default function GenericMedicineFinder() {
                 </p>
               </div>
             </div>
-
             <div className="w-full bg-gray-200 rounded-full h-2 mb-4 mx-auto max-w-md">
               <motion.div
                 className="h-full bg-gradient-to-r from-cyan-500 to-blue-400 rounded-full"
@@ -118,10 +117,17 @@ export default function GenericMedicineFinder() {
               />
             </div>
           </header>
-
+          <div className="w-full mb-8">
+            <img
+              src="/images/banner.jpg"
+              alt="Doctor Saath Hai main banner"
+              className="w-full h-[500px] object-cover rounded-xl shadow-[0_0_40px_#006994] ring-2 ring-[#006994]/30"
+            />
+          </div>
           {/* Card Content */}
           <AnimatePresence mode="wait">
             {step == "upload" && (
+              
               <motion.div
                 key="upload"
                 initial={{ opacity: 0, y: 20 }}
@@ -130,6 +136,7 @@ export default function GenericMedicineFinder() {
                 transition={{ duration: 0.3 }}
                 className="bg-white rounded-lg shadow-lg p-6 text-black max-w-md mx-auto"
               >
+                
                 <h2 className="text-2xl font-semibold mb-4 text-[#004f63] text-center font-poppins">
                   Upload Medicine Photo
                 </h2>

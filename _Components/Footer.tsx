@@ -1,4 +1,4 @@
-'use client';
+"use client";
 import { useState, useEffect } from "react";
 import {
   Facebook,
@@ -17,7 +17,7 @@ import { useTranslation } from "react-i18next";
 const Footer = () => {
   const [isVisible, setIsVisible] = useState(false);
   const [mounted, setMounted] = useState(false);
-const [t] = useTranslation();
+  const [t] = useTranslation();
   useEffect(() => {
     setMounted(true);
 

@@ -73,8 +73,6 @@ const Navbar = () => {
           </div>
 
           <div className="flex items-center gap-4">
-          
-
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
@@ -110,7 +108,6 @@ const Navbar = () => {
                 </motion.span>
               </Link>
             ))}
-            
           </div>
         </motion.div>
       )}

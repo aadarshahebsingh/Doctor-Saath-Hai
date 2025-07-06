@@ -12,7 +12,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 
-
 // Type definitions
 interface Symptom {
   id: string;
@@ -514,8 +513,11 @@ const SymptomPage: NextPage = () => {
 
   return (
     <>
-    <Navbar/>
-    <br /><br /><br /><br />
+      <Navbar />
+      <br />
+      <br />
+      <br />
+      <br />
       <Head>
         <title>Medi AI | Symptom Checker</title>
         <meta name="description" content="Check your symptoms with Medi AI" />
@@ -1134,7 +1136,6 @@ const SymptomPage: NextPage = () => {
                           healthcare professional before taking any medication.
                         </p>
                       </div>
-                      
                     </div>
                   </motion.div>
                   <motion.div
@@ -1161,24 +1162,28 @@ const SymptomPage: NextPage = () => {
                         </svg>
                       </div>
                       <div>
-  <h4 className="font-medium text-red-800 mb-1">
-    Seek Urgent Medical Attention If You Experience:
-  </h4>
-  <ul className="list-disc pl-5 text-sm text-red-700 space-y-1">
-    <li>Vomiting that is persistent or severe</li>
-    <li>Vision changes (blurred, double, or loss of vision)</li>
-    <li>Loss of consciousness or fainting</li>
-    <li>Difficulty breathing or shortness of breath</li>
-    <li>High fever (above 103°F or 39.4°C) that doesn’t go down</li>
-    <li>Sharp, intensely painful abdominal pain</li>
-    <li>Painful urination accompanied by fever or back pain</li>
-  </ul>
-</div>
-                      
+                        <h4 className="font-medium text-red-800 mb-1">
+                          Seek Urgent Medical Attention If You Experience:
+                        </h4>
+                        <ul className="list-disc pl-5 text-sm text-red-700 space-y-1">
+                          <li>Vomiting that is persistent or severe</li>
+                          <li>
+                            Vision changes (blurred, double, or loss of vision)
+                          </li>
+                          <li>Loss of consciousness or fainting</li>
+                          <li>Difficulty breathing or shortness of breath</li>
+                          <li>
+                            High fever (above 103°F or 39.4°C) that doesn’t go
+                            down
+                          </li>
+                          <li>Sharp, intensely painful abdominal pain</li>
+                          <li>
+                            Painful urination accompanied by fever or back pain
+                          </li>
+                        </ul>
+                      </div>
                     </div>
                   </motion.div>
-                  
-
                 </div>
 
                 {/* Action Buttons */}
@@ -1538,12 +1543,14 @@ const SymptomPage: NextPage = () => {
                 </p>
               </div>
               <div className="ml-auto">
-                <button
-                  type="button"
+                <a
+                  href="https://medical-house.streamlit.app/"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="inline-flex items-center px-4 py-2 border border-blue-500 text-sm font-medium rounded-lg text-blue-700 bg-white hover:bg-cyan-50 transition-colors"
                 >
                   Chat with assistant
-                </button>
+                </a>
               </div>
             </div>
           </motion.div>
